@@ -8,7 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, fig.width=10, fig.height=8)
+knitr::opts_chunk$set(echo = TRUE, fig.width=10, fig.height=8, fig.align = "center")
 ```
 
 ## Introduction
@@ -114,6 +114,7 @@ Both values (mean and median) for the imputed data are presented in the plot wit
 
 ## Are there differences in activity patterns between weekdays and weekends?
 
+
 ```{r activity_pattern}
 active_imp$day <- "weekday" #default 'weekday'
 weekend <- substr(weekdays(active_imp$date),1,1)=="S" #days which starts with 'S' (Saturday and Sunday) is weekend
@@ -123,7 +124,7 @@ avg_steps_day <- aggregate(steps ~ interval + day, active_imp, mean)
 #plotting
 g <- ggplot(avg_steps_day, aes(x=interval, y=steps)) + geom_line(aes(color=steps), size=0.8)
 g <- g + facet_grid(day~.)
-g <- g + labs(title="Average number of steps @ weekdays and weekend by 5min intervals of a day", x="Intervals of a day", y="Number of steps")
+g <- g + labs(title="Average number of steps @ weekdays/end by intervals of a day", x="Intervals of a day", y="Number of steps")
 g
 ```
 
