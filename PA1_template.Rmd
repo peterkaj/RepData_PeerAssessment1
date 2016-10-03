@@ -1,25 +1,131 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "peterkaj"
+date: "3 10 2016"
 output: 
   html_document:
     keep_md: true
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width=10, fig.height=8)
+```
+
+## Introduction
+
+The goal of this project is to do a little bit of data analysis and wirte up a report using R markdown and knitr. The report should answer the questions in the assignment and should be completed in this single R markdown document that can be processed by knitr and be transformed into an HTML file.
+The data for this analysis can be downloaded from [Activity monitoring data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip) and has to be stored in the actual working directory.
+
 
 ## Loading and preprocessing the data
 
+Load the activity.csv file, the necessary libraries and changes the class of the date variable to "Date".
+
+```{r load}
+library(ggplot2) #for plotting with ggplot
+library(dplyr) #for 'select' and 'arrange'
+active <- read.csv("activity.csv") #read data
+active$date <- as.Date(active$date) #change class - factor to date
+```
 
 
 ## What is mean total number of steps taken per day?
+Missing Values in the dataset are ignored.
+
+### 1.Total number of steps taken per day
+```{r total_steps}
+daily_steps <- aggregate(steps ~ date, active, sum)
+#barplot - the total number of steps taken each day
+g <- ggplot(daily_steps, aes(x=date, y=steps))
+g <- g + geom_bar(stat = "identity", fill="blue", na.rm=TRUE)
+g + labs(title="Total number of steps taken by day", y="Number of Steps", x="Date")
+```
+
+### 2. Mean and Median of the total number of steps per day
+
+```{r total_steps_mean_median}
+mean_step <- mean(daily_steps$steps, na.rm = TRUE) # mean value of number of steps (with original data)
+median_step <- median(daily_steps$steps, na.rm = TRUE) # median value of number of steps (with original data)
+#barplot - the total number of steps taken each day
+g <- ggplot(daily_steps, aes(x=date, y=steps))
+g <- g + geom_bar(stat = "identity", fill="blue", na.rm=TRUE)
+g <- g + labs(title="Total number of steps taken by day", y="Number of Steps", x="Date")
+g <- g + geom_hline(yintercept = mean_step, colour="red")
+g <- g + annotate("text", min(daily_steps$date)-2, mean_step*1.1, label = "mean", color="red")
+g <- g + geom_hline(yintercept = median_step, colour="black")
+g + annotate("text", min(daily_steps$date)-2, mean_step*0.9, label = "median", color="black")
+```
+
+The mean value of the total number of steps per day is equal to **`r format(mean_step, digits = 6)`** and the median value is equal to **`r format(median_step, digits = 6)`**. Both values are presented in the plot with horizontal lines, but it is hard to differentiate the two close values.
 
 
 
 ## What is the average daily activity pattern?
 
+```{r daily_activity}
+avg_steps <- aggregate(steps ~ interval, active, mean) #mean value of steps across days for every interval
+interval_max_step <- avg_steps$interval[which.max(avg_steps$steps)] #intervall with maximum number of steps
+#lineplot
+g <- ggplot(avg_steps, aes(x=interval, y=steps)) + geom_line(aes(color=steps), size=1) 
+g <- g + labs(title="Average number of steps taken (across all days) by the 5min intervals of a day", x="intervals of a day", y="Number of Steps")
+g <- g + geom_point(aes(interval_max_step, max(avg_steps$steps)), colour="red", shape=4) 
+g <- g + annotate("text",interval_max_step, max(avg_steps$steps)+10, label = paste("Maximum number of average steps at interval ", interval_max_step), color="red")
+g
+```
+
+The **interval `r interval_max_step`** contains the maximum number of steps (on average across all days) and **is equal to `r format(max(avg_steps$steps), digits=4)`**.
 
 
 ## Imputing missing values
 
+All the missing step-values are exchanged to the mean number of steps across all days of the appropriate interval.
 
+```{r imputing}
+active_na <- sum(is.na(active$steps)) #Count of NA
+names(avg_steps)[2] <- "mean_steps"
+active_imp <- merge(x=active, y=avg_steps, by="interval") #add mean values of steps across all days per interval
+active_imp$steps[is.na(active_imp$steps)] <- active_imp$mean_steps[is.na(active_imp$steps)] # impute the values
+active_imp <- select(active_imp, steps, date, interval)
+active_imp <- arrange(active_imp, date, interval) # equivalent to 'active', but with imputed data
+daily_steps_imp <- aggregate(steps ~ date, active_imp, sum) # equivalent to 'daily_steps' but with imputed data
+mean_step_imp <- mean(daily_steps_imp$steps, na.rm = TRUE) #mean value with imputed data
+median_step_imp <- median(daily_steps_imp$steps, na.rm = TRUE) #median value with imputed data
+```
+
+
+
+The new (with imputed data) mean value of the total number of steps per day is equal to** `r format(mean_step_imp, digits = 6)`** and the median value is equal to **`r format(median_step_imp, digits = 6)`**. The difference of the mean values between original data and imputed data is equal to **`r format(mean_step - mean_step_imp, digits=3)`** and the difference of median values is equal to **`r format(median_step - median_step_imp, digits=3)`**.
+
+
+
+```{r total_steps_imputed}
+#barplot - the total number of steps taken each day (with imputed data)
+g <- ggplot(daily_steps_imp, aes(x=date, y=steps))
+g <- g + geom_bar(stat = "identity", fill="blue", na.rm=TRUE)
+g <- g + labs(title="Total number of steps taken by day (with imputed data)", y="Number of Steps", x="Date")
+g <- g + geom_hline(yintercept = mean_step_imp, colour="red")
+g <- g + annotate("text", min(daily_steps_imp$date)-3, mean_step_imp*1.1, label = "mean", color="red")
+g <- g + geom_hline(yintercept = median_step_imp, colour="black")
+g <- g + annotate("text", min(daily_steps_imp$date)-3, mean_step_imp*0.9, label = "median", color="black")
+g
+```
+
+Both values (mean and median) for the imputed data are presented in the plot with horizontal lines, but it is hard to differentiate the two close values.
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+```{r activity_pattern}
+active_imp$day <- "weekday" #default 'weekday'
+weekend <- substr(weekdays(active_imp$date),1,1)=="S" #days which starts with 'S' (Saturday and Sunday) is weekend
+active_imp$day[weekend] <- "weekend"
+active_imp$day <- as.factor(active_imp$day)
+avg_steps_day <- aggregate(steps ~ interval + day, active_imp, mean)
+#plotting
+g <- ggplot(avg_steps_day, aes(x=interval, y=steps)) + geom_line(aes(color=steps), size=0.8)
+g <- g + facet_grid(day~.)
+g <- g + labs(title="Average number of steps @ weekdays and weekend by 5min intervals of a day", x="Intervals of a day", y="Number of steps")
+g
+```
+
+
+End of Report
